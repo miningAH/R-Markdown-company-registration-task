@@ -1,0 +1,971 @@
+---
+title: "Company Registration Report"
+bibliography: references.bib  
+author: "miningAH"
+date: "2025-01-17"
+output: 
+  word_document:
+    toc: true # make the table of contents show in the doc
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#clearing the environment
+rm(list = ls())
+
+set.seed(28)
+
+# library packages used
+library(tidyverse)
+library(readxl)
+library(dplyr)
+library(lubridate)
+library(RColorBrewer)
+library(ggplot2)
+library(scales)
+library(knitr)
+opts_chunk$set(fig.width = 14, fig.height = 8)
+library(flextable)
+
+# import the dataset
+hmrcdata <- read_xlsx("C:/Users/anas2/OneDrive/Documents/CV/hmrc/data task/HMRC Exercise data.xlsx", sheet = "Data")
+
+```
+
+\newpage
+
+# Task Brief
+
+You are required to present an analysis of Company Registration data, along with turnover and business type.  
+
+The data is based upon Open Source information. It has been anonymised and manipulated for the purposes of this exercise. Fictional turnover and Trade Type data has been added. The dataset is not representative of any real life Company and no attempt should be made to identify real businesses through it.  
+
+All the necessary data is contained in the Excel Workbook, and you can use any software you wish to analyse it. However, it is expected that most people will use Excel, or an equivalent program like Google Sheets, or Open Office Calc. 
+
+We would like the presentation to cover your answers to the questions below, and the methods used to reach your conclusions. 
+
+1. Which sectors show the greatest increase and decrease in turnover over the years available? 
+
+2. What is the total turnover for "Farming" broken down by year? 
+
+3. What is the LEAST common month to incorporate a business? Is this true for all Company Types? 
+
+4. What other conclusions can be drawn from the data. We are particularly interested in trends over time, and comparisons between different geographic areas. 
+
+
+\newpage
+
+# Chapter 1 - Introduction
+
+## 1.1. Data Source
+
+See 'The Task' section of this report.
+
+## 1.2. Technologies
+
+Excel has been used to conduct feature engineering to gain useful geographical features from the postal code. 
+R has been for all remaining data analysis activities including data pre-processing, visualisations, and analysis.
+The R-Studio IDE has been used as the environment for analysis efforts.
+
+## 1.3. Methodology and report structure
+
+The analysis methodology used for this task is based on the first four of the six stages of the CRISP-DM framework followed by a delivery / sharing stage. The five stages, which also give this report its structure, are as follows:
+
+1) Business understanding - Exploring all unknown contextual concepts and issues.
+2) Data understanding - Exploring the raw data for an initial understanding.
+3) Data preparation - Cleansing the data from issues such as duplicates, incorrect values and so on.
+4) Data Analysis - Analysing the data for insights and the questions mentioned in the task brief.
+5) Insights sharing - Creating a presentation to share data insights discovered.
+
+## 1.4. Assumptions
+
+Due to the nature of this task, clarifying the dataset origins and testing its adequacy is not possible.
+Therefore to be able to make conclusions and draw insights from the data it is assumed that either:
+
+- the dataset constitutes an entire population of records or a representative sample of one, or 
+- that the conclusions being incorrect to the real world is not an issue, as the dataset is to be dealt with in isolation. 
+
+\newpage
+
+# Chapter 2 - Business / Contextual Understanding
+
+The following chapter describes the contextual research conducted to support the analysis phase of the task.
+
+## Company Registration
+
+A registered company is one that has been incorporated at Companies House (the UK's national business registry).
+
+An organisation would undergo this registration in order to become a limited company.[@website_govuk_companieshouse_blog]
+
+
+"A limited company is a type of business structure that is incorporated (registered) at Companies House. It is a distinct legal entity that is completely separate from its owners (members), which means that it’s responsible for its own finances and debts.
+Companies are managed by one or more directors. They are appointed by members to run the business on their behalf, but it is common for directors to also be members.
+The owners of a limited company benefit from reduced financial responsibility for business debts. This is known as limited liability." (@website_first_formations)
+
+Company Registration data will therefore contain information about companies that have registered at Companies House. These are limited liability companies and therefore excludes sole traderships.
+
+Note that "Once incorporation at Companies House has been accepted the Corporation Tax information will be sent to HMRC and will not be retained by Companies House." [@website_companieshouse]
+
+Finally, a lot of data is provided to Companies House on a yearly basis, including financial statements. (@website_companieshouse_accounts).
+
+## UK postal codes
+
+UK postal codes were developed by the UK's postal service, Royal Mail, in order to be able to deliver posts.
+The Royal Mail maintains a UK-wide system of postcodes. 
+
+Postcodes are alphanumeric references that help to identify geographical areas. They comprise of two parts, an outward code of between 2 to 4 characters and an inward code of three characters. The outward code references the postcode area and district of a particular geographical location. The inward code provides finer location identification. (@website_ons_postal)
+
+It is important to note that UK postal codes always start with a letter and that a full postcode (Unit postcode) will always be between 5 and 7 charcters long. [@website_ideal_postcodes].
+
+
+\newpage
+
+# Chapter 3 - Data Understanding
+
+The following chapter discusses an initial exploration of the dataset provided for the task at hand. The goal behind this stage was to gain a general understanding of the data by manually exploring the data, and to spot any quality issues which would need to be addressed in the subsequent stage of data preparation.
+
+## 3.1. Viewing the first and last five records of the dataset
+
+```{r echo=FALSE}
+
+# Viewing the first 5 rows of the data
+first_five_rows <- head(hmrcdata, 5)
+
+# Converting the first 5 rows into a flextable for better visual style in the report
+flextable(first_five_rows) %>%
+  set_caption("First 5 Rows of HMRC Data") %>%
+  autofit()  # Adjusting column widths to fit the content
+
+```
+
+The first five records of the HMRC dataset indicates fairly regular and clean data however with many missing values. Some attributes represent categorical features and would therefore need to be assessed for any category related errors. For instance, when the same word, one with a capitalised starting letter and the lower cased, constitute two separate categories when they should be one. The issue of missing data needs to be investigated and the values of records, for each attribute, checked for correctness. 
+
+```{r echo=FALSE}
+# Viewing the first 5 rows of the data
+last_five_rows <- head(hmrcdata, 5)
+
+# Converting the last 5 rows into a flextable for better visual style in the report
+flextable(last_five_rows) %>%
+  set_caption("Last 5 Rows of HMRC Data") %>%
+  autofit()  # Adjusting column widths to fit the content
+```
+
+The last five records of the HMRC dataset confirms that there are records in the dataset that are not appropriate for analysis.This is because these records represent summary records.
+
+## 3.2. Viewing a glimpse of the dataset
+
+```{r echo=FALSE}
+
+glimpse(hmrcdata) # Viewing a glimpse of the dataset (some values for each attribute, there types, and total row and column amounts)
+
+```
+
+Viewing a quick glimpse of the dataset reveals that the data has 18 attributes and a little over 50 thousand records. It is important for analysis reasons to note that the turnover for the years 2020 to 2024 are provided within columns. This should mean that in general only a single record should exist for each company name.
+
+\newpage
+
+## 3.3. Manually exploring the dataset
+
+Manually exploring the entire dataset through changing column sorting and filtering revealed the following:
+
+- Incorrect postcode values exist, for instance they might contain only numbers, be too short, or not start with a letter.
+- Outliers and extreme values are not an issue within the dataset.
+
+# Chapter 4 - Data Preperation
+
+The following chapter outlines the data preparation activities undertaken to ensure that the data is of sufficient enough quality to move ahead with analysis efforts. 
+
+## 4.1. Feature Engineering - new attributes
+
+To begin with, in order to undertake geographic analysis the postcode attribute from the original dataset was used to generate the following four features: Country, Region, Longitude, and Latitude.The changes were made in Excel and involved calling the postcodes.io api (@website_postcodes_api) with each postcode and then extracting the relevant attribute values from the json formatted response.
+
+```{r echo=FALSE}
+# an example of the function used in excel to get json api response is as follows:
+  # (=WEBSERVICE("https://api.postcodes.io/postcodes/" & C2)) 
+```
+
+## 4.2. Fixing incorrect Data Types
+
+The data types of several attributes in the dataset were initially incorrect. To fix these issue the Incorporation Date and Company Closed Date where changed to a date type, whilst Longitude, and Latitude were both made into doubles (decimal number type).
+
+```{r echo=FALSE, include=FALSE}
+str(hmrcdata) # str is a diagnostic function - it displays the internal structure of an R object. shows a summary of the data similar to the glimpse function.
+```
+
+```{r echo=FALSE}
+# changing attributes of type POSIXct to date
+hmrcdata$IncorporationDate <- as_date(hmrcdata$IncorporationDate) 
+hmrcdata$`Company Closed Date` <- as_date(hmrcdata$`Company Closed Date`)
+hmrcdata$`Accounts Last Made Date` <- as_date(hmrcdata$`Accounts Last Made Date`)
+
+# changing attributes of type character to double
+hmrcdata$Latitude <- as.double(hmrcdata$Latitude)
+hmrcdata$Longitude <- as.double(hmrcdata$Longitude)
+
+# changing attributes of type character to factor
+hmrcdata$Region <- as.factor(hmrcdata$Region)
+hmrcdata$Country <- as.factor(hmrcdata$Country)
+hmrcdata$CountryOfOrigin <- as.factor(hmrcdata$CountryOfOrigin)
+hmrcdata$CompanyCategory <- as.factor(hmrcdata$CompanyCategory)
+hmrcdata$`Company Reference` <- as.factor(hmrcdata$`Company Reference`)
+hmrcdata$`Company Type` <- as.factor(hmrcdata$`Company Type`)
+```
+
+## 4.3. Checking for total duplicates
+
+To ensure statistical figures would be accurate the existence of duplicates was investigated. A total of 35 rows were found to be total duplicates (same values across all attributes). This issue was resolved by filtering the dataset to ensure that only distinct values remained.
+
+```{r echo=FALSE, include=FALSE}
+#checking for duplicate rows using dplyr
+hmrcdata %>%
+  group_by_all() %>%
+  filter(n()>1) %>%
+  ungroup()
+```
+
+```{r echo=FALSE, include=FALSE}
+# Keeping a single record from records that are total duplicates using dplyr
+hmrcdata <- hmrcdata %>%
+  distinct()  # Retains only the first occurrence of each duplicate row
+```
+
+## 4.4. Checking businesses that have multiple records
+
+Similar to duplicate checking, the issue of businesses having multiple records associated to themselves was explored. This is because the existence of multiple records could be problematic if they contain contradicting information, or one is new whilst the other outdated. The results showed that only a single business had two records and that these records were not problematic and so were left in the dataset.
+
+```{r echo=FALSE, include=FALSE}
+# getting all rows in which the company name value occurs more than once (this value show in more than one row)
+duplicates <- hmrcdata %>%
+  group_by(`Company Name`) %>%
+  filter(n() > 1)
+
+# Viewing these duplicates
+ print(duplicates)
+```
+
+## 4.5. Checking for missing data for each column 
+
+```{r echo=FALSE, include=FALSE}
+# checking the number of missing data for each column
+sapply(hmrcdata, function(x) sum(is.na(x)))
+```
+
+Many columns contain missing values. for some of these attributes the precense of missing values is expected, for instance 49,132 records have the company closed date as empty because they are still active and not closed. However for many others no logical reason can be determined as to why they would be missing. In such a case of large amounts of missing values, imputing values or removing records is not useful, hence the dataset will be used with these limitations in mind.
+
+## 4.6. Checking for incorrect record values 
+
+```{r echo=FALSE, include=FALSE}
+# Getting the distinct and sorted values for all columns
+distinct_sorted_values <- lapply(hmrcdata, function(column) {
+  unique_values <- sort(unique(column))
+  return(unique_values)
+})
+
+# Assigning column names to the results for clarity
+names(distinct_sorted_values) <- colnames(hmrcdata)
+
+# Printing the results
+print(distinct_sorted_values)
+```
+
+Checking attributes for appropriate values revealed the following points:
+
+- Attributes with fewer distinct values such as Company Type, Company Category, Company Reference, and Country of origin are free from value related issues. 
+- Region, Country, longitude and latitude, due to being computed values engineered in excel, also do not have data value issues.
+- The Turnover columns (2020 to 2024) also show to be free from value errors, determined through manually sorting.
+- The remaining 5 attributes require deeper checks to ensure values are correct. Due to having too many distinct values a formatting based check will be required to ensure data values are as expected. Sections 4.6.1 to 4.6.3 will discuss these checks further.
+
+### 4.6.1. Checking date values
+
+A check to ensure that that the Incorporated Date, Accounts Last Made Date, and Company Closed Date adhered to the 'YYYY-MM-DD' format was used to ensure that all date values were correct.
+
+```{r echo =FALSE, include=FALSE}
+
+# checking incorporated date for value related issues
+
+# defining a Regular expression with the YYYY-MM-DD format
+valid_date_format <- "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+
+# Checking for invalid dates using the regular expression defined above and the grepl function. Ignoring NA values
+invalid_dates <- hmrcdata[!is.na(hmrcdata$IncorporationDate) & 
+                          !grepl(valid_date_format, hmrcdata$IncorporationDate), ]
+
+# Printing the records with invalid dates. if none - printing "all dates are valid"
+if (nrow(invalid_dates) > 0) {
+  print("Records with invalid date format:")
+  print(invalid_dates)
+} else {
+  print("All dates are valid.")
+}
+
+```
+
+
+```{r echo =FALSE, include=FALSE}
+
+# checking accounts last made date for value related issues
+
+# Checking for invalid dates using the regular expression defined previously and the grepl function. Ignoring NA values
+invalid_dates <- hmrcdata[!is.na(hmrcdata$`Accounts Last Made Date`) & 
+                          !grepl(valid_date_format, hmrcdata$`Accounts Last Made Date`), ]
+
+# Printing the records with invalid dates. if none - printing "all dates are valid"
+# the same if-else block is repeated earlier. could be ref-factored.
+if (nrow(invalid_dates) > 0) {
+  print("Records with invalid date format:")
+  print(invalid_dates)
+} else {
+  print("All dates are valid.")
+}
+
+```
+
+```{r echo =FALSE, include=FALSE}
+
+# checking company closed date for value related issues
+
+# Checking for invalid dates using the regular expression defined previously and the grepl function. Ignoring NA values
+invalid_dates <- hmrcdata[!is.na(hmrcdata$`Company Closed Date`) & 
+                          !grepl(valid_date_format, hmrcdata$`Company Closed Date`), ]
+
+# Printing the records with invalid dates. if none - printing "all dates are valid"
+# the same if-else block is repeated earlier. could be ref-factored.
+if (nrow(invalid_dates) > 0) {
+  print("Records with invalid date format:")
+  print(invalid_dates)
+} else {
+  print("All dates are valid.")
+}
+
+```
+
+Ignoring missing values all records (for each of the attributes) adhered to the specified date format. Therefore, no value related issues exist for these attributes.
+
+### 4.6.2. Checking Company Name values 
+
+To fix the company name value issues found during data understanding stage, company names beginning with the word 'summary' were removed from the dataset as they represented summary records and would therefore effect analysis values if left in. 
+
+```{r echo=FALSE, include=FALSE}
+# filtering out companies that start with 'Summary' using dplyr/grepl
+hmrcdata <- hmrcdata %>%
+  filter(!grepl("^Summary", `Company Name`))
+
+print(hmrcdata)
+```
+
+After removing these records, the remaining records were of the same format ('Business-' followed by a string of numbers), and thus do not have any remaining issues.
+
+### 4.6.3. Checking postcode values 
+
+To fix the postcode value related issues found during data understanding stage a format check was used to find all records that start with other than a letter, only has alphanumeric values, and has a length of 4 to 7. After checking over the 40 records returned, the postcode values for each were removed due to being incorrect and would have a negative impact on analysis efforts.
+
+```{r echo=FALSE, include=FALSE}
+# A Regular expression to check that the postcode is in the correct format (starts with alphabet, only has alphanumeric values, has a length of 4 to 7)
+valid_postcode_regex <- "^[A-Za-z][A-Za-z0-9 ]{4,7}$"
+
+# Checking for invalid postcodes using the regular expression defined previously and the grepl function. Ignoring NA values
+invalid_postcodes <- hmrcdata[!is.na(hmrcdata$Postcode) & 
+                              !grepl(valid_postcode_regex, hmrcdata$Postcode), ]
+
+# Printing the records with invalid postcodes if none - printing "all dates are valid"
+if (nrow(invalid_postcodes) > 0) {
+  print("Records with invalid postcodes:")
+  print(invalid_postcodes)
+} else {
+  print("All postcodes are valid or NA.")
+}
+
+# Replacing the records found to have invalid postcodes with NA for the postcode value.
+hmrcdata$Postcode[!is.na(hmrcdata$Postcode) & 
+                  !grepl(valid_postcode_regex, hmrcdata$Postcode)] <- NA
+```
+
+### 4.7. Creating a long formatted version of the dataset for analysis.
+
+As earlier noted, the original dataset has turnover values in columns based on the year. 
+This format is not the most efficient for conducting analysis efforts, and so a longer format is needed, one in which the turnover year is separate from the actual turn over. 
+
+```{r echo=FALSE}
+
+# Reshaping the data to a more normalised format for analysis. 
+# why? the columns 2020 turnover etc should have come from a separate turnover table with a relationship to the companies table.
+# when the dataset at hand was put together information that should have originally been on 2 separate tables seem to have been combined.
+# the rows like 2020 turnover etc are an issue as they convey 2 pieces of information (the year and the turnover value) and therefore can be said to be not adequately normalised. decoupling these 2 pieces of information makes the dataset easier to analyse.
+hmrcdata_long <- hmrcdata %>%
+# using the pivot longer method from tidyr. 
+    # cols: takes the columns to pivot, 
+    # names_to: holds the names to be used as values in a new column. User specifies the column name for this new column, 
+    # values_to: holds the values to be made into a new column. User specifies the column name for this new values column
+  pivot_longer(
+    cols = starts_with("20"), 
+    names_to = "TurnoverYear",   
+    values_to = "Turnover"         
+  ) %>%
+  mutate(TurnoverYear = as.numeric(gsub(" Turnover", "", TurnoverYear)))  # Cleaning up the TurnoverYear column by removing the characters "turnover" from values.
+
+```
+
+As a result of creating this new dataset the number of rows increased from just under 50,000 to just under 250,000. In addition, two new columns were made; one holding the year of turnover (TurnoverYear) and the other holding turnover values (Turnover). The original turnover columns such as '2020 Turnover' are no longer in the dataset.
+
+\newpage
+
+# Chapter 5 - Data Analysis
+
+This chapter details the data analysis efforts conducted for the task at hand, beginning with a general Exploratory Data Analysis stage, followed by exploration of the task based questions.
+
+## 5.1. Initial Exploratory Data Analysis - Statistical summary of the dataset
+
+```{r echo=FALSE}
+summary(hmrcdata_long)
+
+summary(hmrcdata)
+summary(hmrcdata[, c("2020 Turnover", "2021 Turnover", "2022 Turnover", "2023 Turnover", "2024 Turnover", "IncorporationDate")])
+```
+
+Viewing a statistical summary of the data we can learn that:
+
+- The earliest incorporation date within the dataset is in February 1902 and the latest is November 2024.
+- 23 records don't have an incorporation date which shouldn't missing considering the fact that the dataset is about company registration.
+- The mean turnover is the highest in 2020. This falls to the lowest average turnover of 590,573 in 2021. Since then the turnover has been increasing year on year with the mean turnover falling at 765,641.
+- The max turnover values for each year (2020 - 2024) are around 3.8 million showing that extreme outliers are not affecting the differences between mean values. The same concept of outliers and extreme values also apply to minimum turnover values.
+
+## 5.2. Initial Exploratory Data Analysis - Visual investigation
+
+### 5.2.1. Viewing the statuses of organisations in the dataset (open, closed, in liquidation)
+
+```{r echo=FALSE}
+
+# Grouping and summarising data by count
+hmrcdata_filtered_Reg_Ref <- hmrcdata_long %>%
+  group_by(Region, `Company Reference`) %>%
+    summarize(Count = n(), .groups = "drop")
+
+# creating a stacked Bar Chart with a log scale for an easier to read plot
+ggplot(hmrcdata_filtered_Reg_Ref, aes(x = factor(Region), y = Count, fill = `Company Reference`)) +
+  geom_bar(stat = "identity", width = 0.7) +  # Creating the stacked bars
+    scale_y_log10() +  # using the log scale for better visibility of small values
+  geom_text(aes(label = Count), position = position_stack(vjust = 0.5), size = 3) +  # Adding count labels inside bars
+  labs(
+    title = "Organisational Statuses by Region",
+    x = "Region",
+    y = "Log Scale of Count",
+    fill = "Status"
+  ) +
+  theme_minimal() +
+    scale_fill_brewer(palette = "Set3") + # changing the colour pallete for better visual contrast
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),  # Rotating the x-axis labels for better readability
+    legend.position = "top"  # Positioning the legend at the top
+  ) 
+
+```
+
+Viewing a visual summary of the data we can learn that:
+
+- Most of the dataset contains open businesses however in every region their are a number of organisations that are closed or in  liquidation. These findings are important to note when considering which records you want to keep when doing calculations / answering questions using the data.
+
+\newpage
+
+## 5.3. Exploring the task based questions
+
+### 5.3.1. Question 1 - Which sectors show the greatest increase and decrease in turnover over the years available? 
+
+#### Change in turnover over the years (difference between the latest and earliest year).
+
+```{r echo=FALSE}
+
+# Filtering the long formatted into a new data frame that only has 2020 and 2024 turnover data
+filtered_data <- hmrcdata_long %>%
+  filter(TurnoverYear %in% c(2020, 2024))  # Keeping only rows in which TurnoverYear is 2020 or 2024
+
+# Calculating the differences between the turovers in 2024 and 2020 (2024 values - 2020 values)
+comparison_data <- filtered_data %>%
+  group_by(`Company Type`) %>%
+  summarise(
+    Turnover_2020 = sum(Turnover[TurnoverYear == 2020], na.rm = TRUE),
+    Turnover_2024 = sum(Turnover[TurnoverYear == 2024], na.rm = TRUE)
+  ) %>%
+  mutate(Difference = Turnover_2024 - Turnover_2020)
+
+# Creating a bar plot to visual the difference
+ggplot(comparison_data, aes(x = reorder(`Company Type`, Difference), y = Difference, fill = Difference > 0)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  scale_fill_manual(values = c("red", "lightgreen")) +  # Red colour set for negative values and green for positive
+    scale_y_continuous(labels = scales::comma) +  # Converting the Y-axis labels to a non-scientific format (via the scales package)
+    geom_text(aes(label = scales::comma(Difference)),  # Adding the labels with commas to make them easier to read
+            position = position_stack(vjust = 0.5),    # Positioning count labels in the middle of each bar segment
+            color = "black", size = 4) +  
+  labs(
+    title = "Change in Turnover from 2020 to 2024 by Company Type",
+    x = "Company Type",
+    y = "Difference in Turnover"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+
+#### Using percentage change
+
+```{r echo=FALSE}
+
+# Aggregating the turnover by sector and year
+hmrcdata_long_sector_turnover <- hmrcdata_long %>%
+  group_by(`Company Type`, TurnoverYear) %>%
+  summarise(TotalTurnover = sum(Turnover, na.rm = TRUE), .groups = 'drop')
+
+# Calculating percentage change by sector and year
+hmrcdata_long_sector_turnover <- hmrcdata_long_sector_turnover %>%
+  arrange(`Company Type`, TurnoverYear) %>%
+  group_by(`Company Type`) %>%
+  mutate(PercentageChangeFromPrevious = (TotalTurnover - lag(TotalTurnover)) / lag(TotalTurnover) * 100) %>%
+  ungroup()
+
+# Formatting the output table
+sector_percentage_change <- hmrcdata_long_sector_turnover %>%
+  select(`Company Type`, TurnoverYear, PercentageChangeFromPrevious)
+
+sector_percentage_change_sorted <- sector_percentage_change %>%
+  arrange(desc(PercentageChangeFromPrevious)) %>%
+  filter(!is.na(PercentageChangeFromPrevious)) 
+
+# Viewing the table
+  # print(sector_percentage_change_sorted)
+kable(sector_percentage_change_sorted, caption = "Percentage change by Sector", format = "markdown")
+
+
+# Creating a faceted Line Plot
+ggplot(hmrcdata_long_sector_turnover, aes(x = TurnoverYear, y = PercentageChangeFromPrevious, group = `Company Type`, color = `Company Type`)) +
+  geom_line(size = 1) +  # Adding the size of the lines which connect the points
+  geom_point(size = 2) +  # defining the size of each data point
+  labs(title = "Percentage Change in Turnover by Sector",
+       x = "Year",
+       y = "Percentage Change (%)") +
+  facet_wrap(~ `Company Type`, scales = "free_y") +  # Creating a mini plot for each sector
+   theme_minimal() +
+  theme(legend.position = "none")  # Removing the legend for better clarity
+
+```
+
+
+```{r echo=FALSE}
+
+# filtering the long formatted dataset into a new dataframe that doesn't include any companies whose type is "other"
+hmrcdata_long_filtered_Type <- hmrcdata_long %>%
+    filter(`Company Type` != "Other")
+
+# getting the sum turnover per sector per year
+sector_turnover_per_year <- hmrcdata_long_filtered_Type %>%
+  group_by(`Company Type`, TurnoverYear) %>%
+  summarise(TotalTurnover = sum(Turnover, na.rm = TRUE), .groups = "drop")  # Calculate total turnover per sector per year
+
+# Viewing the result
+  # sector_turnover_per_year
+
+# creating a stacked bar plot to view the results
+ggplot(sector_turnover_per_year, aes(x = as.factor(TurnoverYear), y = TotalTurnover, fill = `Company Type`)) +
+  geom_bar(stat = "identity", position = "stack", width = 0.9) +  # defining that the bar chart should be stacked
+  geom_text(aes(label = scales::comma(TotalTurnover)),  # Adding the sum labels with commas for better readability
+            position = position_stack(vjust = 0.5),    # Positioning these sum labels in the middle of each bar stack segment
+            color = "black", size = 3) +               # Setting the color and size for these sum labels
+  labs(title = "Total Turnover by Sector per Year",
+       x = "Year",
+       y = "Total Turnover") +
+  scale_y_continuous(labels = scales::comma) +  # Formatting the y-axis to display commas for better readability
+   theme_minimal() +
+  scale_fill_brewer(palette = "Set3") # changing the colour palette for better readability
+
+
+```
+
+### 5.3.2. Question 2 - What is the total turnover for "Farming" broken down by year? 
+
+```{r echo=FALSE}
+
+# filtering the non long formatted dataset into a new dataframe that will only include any companies whose type is "farming"
+filteredFarm_data <- filter(hmrcdata, `Company Type` == "Farming")
+
+# Calculating the total turnover for each year
+total_turnover <- data.frame(
+  Year = c(2020, 2021, 2022, 2023, 2024),
+  Total_Turnover = c(
+    sum(filteredFarm_data$`2020 Turnover`, na.rm = TRUE),
+    sum(filteredFarm_data$`2021 Turnover`, na.rm = TRUE),
+    sum(filteredFarm_data$`2022 Turnover`, na.rm = TRUE),
+    sum(filteredFarm_data$`2023 Turnover`, na.rm = TRUE),
+    sum(filteredFarm_data$`2024 Turnover`, na.rm = TRUE)
+  )
+)
+
+# showing a table of the results to verify the results are as expected
+total_turnover
+
+# Creating a bar plot to visualise these results
+ggplot(total_turnover, aes(x = factor(Year), y = Total_Turnover)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_text(aes(label = scales::comma(Total_Turnover)),  # Formatting the sum labels into comma-separated numbers for better readability
+            vjust = -0.5,  # Adjusting the vertical position of the sum labels above the bars
+            size = 3) +  # Adjusting the text size of the sum labels
+  labs(title = "Total Turnover for Farming Companies (2020-2024)",
+       x = "Year",
+       y = "Total Turnover") +
+     theme_minimal() +
+    scale_y_continuous(labels = scales::comma) # Formatting the y scale labels into comma-separated numbers for better readability
+```
+
+### 5.3.3. Question 3 - What is the LEAST common month to incorporate a business? Is this true for all Company Types? 
+
+```{r echo=FALSE}
+
+# Extracting into a new column the month from the incorporation date column
+hmrcdata$Month <- month(hmrcdata$IncorporationDate, label = TRUE)  # by setting the label to TRUE the values will be in the name format
+
+# Counting  the occurrences of each month for each sector
+monthly_count <- hmrcdata %>%
+  group_by(Month, `Company Type`) %>%
+  filter(!is.na(Month))  %>% 
+  summarise(Count = n(), .groups = 'drop')
+
+# Viewing the table to check correctness
+print(monthly_count)
+
+# creating a bar plot to view the results
+ggplot(monthly_count, aes(x = Month, y = Count)) +
+  geom_bar(stat = "identity", fill ="steelblue") +
+  labs(title = "Count of Companies Incorporated by Month",
+       x = "Month",
+       y = "Count") +
+  theme_minimal()
+
+
+
+# creating a scatter plot of the table
+ggplot(monthly_count, aes(x = Month, y = Count, color = `Company Type`, group = `Company Type`)) +
+  geom_line(size = 1) +
+  geom_point(size = 3) +
+  labs(title = "Monthly Count of Companies by Sector",
+       x = "Month",
+       y = "Count") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotating the month labels for readability
+
+
+# filtering out the company type of other from the table
+monthly_count1 <- monthly_count %>%
+  filter(`Company Type` != "Other")
+
+# Identifying the lowest value per company type via a new column. if the value is the lowest in that sector the column should take the value of islowest else other.
+monthly_count1 <- monthly_count1 %>%
+  group_by(`Company Type`) %>%
+  mutate(IsLowest = ifelse(Count == min(Count), "Lowest", "Other"))
+
+# Viewing the table to check correctness
+monthly_count1
+
+# creating a scatter plot with facets for each sector and highlight lowest values
+ggplot(monthly_count1, aes(x = Month, y = Count, color = IsLowest)) +
+  geom_point(size = 3) +  # setting the size for scatter points
+  geom_line(aes(group = `Company Type`), color = "steelblue") +  # defining the line connecting points for each sector
+    geom_text(aes(label = scales::comma(Count)),  # Formatting the sum labels as comma-separated numbers for better readability
+            vjust = -0.7,  # Adjusting the vertical position os sum labels above the points
+            size = 3) +  # Adjusting the text size of the sum labels
+  scale_color_manual(values = c("Lowest" = "red", "Other" = "steelblue")) +  # Setting my own custom colors for the lowest vs other values
+  labs(title = "Monthly Count of Companies by Sector (Excluding 'Other')",
+       x = "Month",
+       y = "Count") +
+  theme_minimal() +
+  facet_wrap(~`Company Type`) +  # Creating a grid of plots for each sector
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),# Rotating e x-axis labels for better readability
+        legend.position = "none")  # removing the legend for better visual look
+
+```
+
+### 5.3.4. Question 4 - What other conclusions can be drawn from the data. We are particularly interested in trends over time, and comparisons between different geographic areas. 
+
+#### Total turnover by year and region. 
+
+```{r echo=FALSE}
+
+# creating a data frame from the long formatted dataset into a new dataframe. grouping by region and turnover year and summarising by the turnover sum
+
+turnover_by_region_year <- hmrcdata_long %>%
+  group_by(Region, TurnoverYear) %>%
+  summarize(TotalTurnover = sum(Turnover, na.rm = TRUE), .groups = "drop")
+
+# using the pivot_wider function of tidyr to change the dataframe made above into a wide format
+turnover_by_region_year_wide <- turnover_by_region_year %>%
+  pivot_wider(
+    names_from = TurnoverYear,                  # Columns for each year
+    values_from = TotalTurnover         # Fill with turnover values
+  )
+
+# Calculate=ing the row totals
+turnover_by_region_year_wide <- turnover_by_region_year_wide %>%
+  mutate(Total = rowSums(across(where(is.numeric)), na.rm = TRUE))  
+
+# Adding column totals
+column_totals <- turnover_by_region_year_wide %>%
+  summarise(across(where(is.numeric), sum, na.rm = TRUE)) %>%
+  mutate(Region = "Total")  # adding a abel for the totals row
+
+# binding the dataframe with the totals
+final_table <- bind_rows(turnover_by_region_year_wide, column_totals)
+
+# creating a flextable to visualise the data in a more visually appealing table
+turnover_flextable <- flextable(final_table) %>%
+  autofit() %>%  # Automatically adjusting the column widths
+  set_caption("Total Turnover for Each Year by Region with Totals") %>%
+  colformat_double(digits = 0, big.mark = ",")  # Formatting the numbers
+
+# Printing the flextable
+turnover_flextable
+
+```
+
+```{r echo=FALSE}
+# using the long formatted data to create a new data frame in which:
+  # the turnover is grouped by TurnoverYear and region
+  # the region "unknown" is removed
+  # summarise the data so that a new column with the sum of turnover is added. 
+turnover_trends2 <- hmrcdata_long %>%
+  filter(Region != "unknown") %>%
+  group_by(TurnoverYear, Region) %>%  
+  summarise(TotalTurnover = sum(Turnover, na.rm = TRUE), .groups = "drop")
+
+# Printing the data to view for correctness
+turnover_trends2
+
+# creating a time-series plot to view the results
+ggplot(turnover_trends2, aes(x = TurnoverYear, y = TotalTurnover, color = Region, group = Region)) +
+  geom_line(size = 1) +  # adding a line connecting the pints  for turnover trends
+  geom_point(size = 2) +   # setting the size of each point for better visibility
+  labs(
+    title = "Turnover Trends by Region (2020-2024)",
+    x = "Year",
+    y = "Total Turnover",
+    color = "Region"
+  ) +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::comma) +  # Format y-axis with commas
+  scale_color_manual(values = c( "red", "maroon","darkgrey", "orange","pink","navy","cyan", "skyblue","forestgreen",  "limegreen", "lightgreen",  "purple")) +  # Use a custom high-contrast color palette
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),  # Rotating the x-axis labels for better readability
+    legend.position = "bottom"                         # Positioning the legend at the bottom
+  )
+```
+
+#### Total turnover by year and Company Type
+
+```{r echo=FALSE}
+
+# using the long formatted data to create a new data frame in which:
+  # the turnover is grouped by company type and turnoveryear
+  # summarise the data so that a new column with the sum of turnover is added. 
+turnover_by_sector_year <- hmrcdata_long %>%
+  group_by(`Company Type`, TurnoverYear) %>%
+  summarize(TotalTurnover = sum(Turnover, na.rm = TRUE), .groups = "drop")
+
+# Pivoting the above data frame to a wider format using the pivot wider function
+turnover_by_sector_year_wide <- turnover_by_sector_year %>%
+  pivot_wider(
+    names_from = TurnoverYear,                  # the names_from arguement of the pivot wider function is set to TurnoverYear
+    values_from = TotalTurnover         # the values_from arguement of the pivot wider function is set to TotalTurnover
+  )
+
+# adding a row totals
+turnover_by_sector_year_wide <- turnover_by_sector_year_wide %>%
+  mutate(Total = rowSums(across(where(is.numeric)), na.rm = TRUE))  # Calculating the row totals
+
+# adding column totals
+column_totals <- turnover_by_sector_year_wide %>%
+  summarise(across(where(is.numeric), sum, na.rm = TRUE)) %>%
+  mutate(`Company Type` = "Total")  # adding the a label
+
+# binding the totals with the data frame
+final_table <- bind_rows(turnover_by_sector_year_wide, column_totals)
+
+# creating a flextable to visualise the table in a better style
+turnover_flextable <- flextable(final_table) %>%
+  autofit() %>%  # Automatically adjusting the column widths
+  set_caption("Total Turnover for Each Year by Company Type with Totals") %>%
+  colformat_double(digits = 0, big.mark = ",")
+
+# Printing the flextable
+turnover_flextable
+
+```
+
+
+```{r echo=FALSE}
+
+# using the long formatted data to create a new data frame in which:
+  # the turnover is filtered so that the company type of other is removed
+  # grouping the data by turnover and company type. 
+turnover_trends <- hmrcdata_long %>%
+    filter(`Company Type` != "Other") %>%
+  group_by(TurnoverYear, `Company Type`) %>%  
+  
+  summarise(TotalTurnover = sum(Turnover, na.rm = TRUE), .groups = "drop")
+
+# creating a time-series plot
+ggplot(turnover_trends, aes(x = TurnoverYear, y = TotalTurnover, color = `Company Type`, group = `Company Type`)) +
+  geom_line(size = 1.2) +  # defining the size of plot lines that connect the points
+  geom_point(size = 2) +   # defining the point size
+  labs(
+    title = "Turnover Trends by Company Type (2020-2024)",
+    x = "Year",
+    y = "Total Turnover",
+    color = "Company Type"
+  ) +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::comma) +  # Format y-axis with commas
+  scale_color_manual(values = c("red","orange","darkgrey","navy","cyan", "magenta","forestgreen", "lightgreen",  "purple"))+  # Using a custom high-contrast color palette for better visibility
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),  # Rotating the x-axis labels for better readability
+    legend.position = "bottom"                         # Positioning the legend for better visibility
+  )
+```
+
+#### The status of companies within each region (open, closed, in liquidation)
+
+Refer back to section 5.2.1. (Viewing the statuses of organisations in the dataset (open, closed, in liquidation)).
+
+
+#### The number of companies within each sector per region
+
+```{r echo=FALSE}
+
+# using the dataset to create a new data frame in which:
+  # the data is grouped by region and company type. 
+  # summarising by count
+summary_data2 <- hmrcdata %>%
+  group_by(Region, `Company Type`) %>%
+    summarize(Count = n(), .groups = "drop")
+
+# creating a stacked Bar Chart with a log scale for better visibility
+ggplot(summary_data2, aes(x = factor(Region), y = Count, fill = `Company Type`)) +
+  geom_bar(stat = "identity", width = 0.9) +
+  scale_y_log10() +  # adding the arguement to use a log scale for better visibility of small values
+  geom_text(aes(label = Count), position = position_stack(vjust = 0.5), size = 3) +  # Adding count labels inside bars
+  labs(
+    title = "Organisational Types by Region",
+    x = "Region",
+    y = "Log Scale of Count",
+    fill = "Status"
+  ) +
+  theme_minimal() +
+    scale_fill_brewer(palette = "Set3") +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),  # Rotating the x-axis labels for better readability
+    legend.position = "top"  # Positioning the legend at the top
+  ) 
+
+```
+
+#### The Share of Yearly Turnover by Company Type
+
+```{r echo=FALSE}
+
+# using the dataset to create a new data frame in which:
+  # the data is grouped by company type and turnover year. 
+  # summarising by the turnover sum
+
+sector_turnover <- hmrcdata_long %>%
+  group_by(`Company Type`, TurnoverYear) %>%
+  summarise(TotalTurnover = sum(Turnover, na.rm = TRUE), .groups = "drop")
+
+# Printing the data frame to check for correctness
+print(sector_turnover)
+
+# Calculating the percentage contribution, for each company type, within each year
+sector_turnover <- sector_turnover %>%
+  group_by(TurnoverYear) %>%
+  mutate(Percentage = (TotalTurnover / sum(TotalTurnover)) * 100) %>%
+  ungroup()
+
+# Creating a stacked bar chart adding the percentages within the stacked bar segments
+ggplot(sector_turnover, aes(x = factor(TurnoverYear), y = TotalTurnover, fill = `Company Type`)) +
+  geom_bar(stat = "identity", width = 0.7) +
+  geom_text( # Adding the percentage labels inside the stacked bar segments
+    aes(label = paste0(round(Percentage, 1), "%")),  # Displaying the percentage to one decimal place
+    position = position_stack(vjust = 0.5), size = 5
+  ) +  
+  labs(
+    title = "Share of Yearly Turnover by Company Type",
+    x = "Year",
+    y = "Total Turnover",
+    fill = "Company Category"
+  ) +
+  scale_y_continuous(labels = scales::comma) +  # Formatting the y-axis labels to have commas for better readability
+  theme_minimal() +
+  scale_y_log10() +  # using a Log scale on the y axis for better visibility of small values
+  scale_fill_brewer(palette = "Set3") +  # Using a better color palette for better differentiation
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),  # Rotating the x-axis labels for better readability
+    legend.position = "top"  # Moving the legend to the top
+  )
+```
+
+
+
+```{r}
+
+```
+
+\newpage
+
+# Chapter 6 - Further Analysis
+
+## 6.1. Analysing businesses without a known location.
+
+```{r echo=FALSE}
+
+# such businesses are organisations to look into 
+
+locationsMissing <- hmrcdata %>%
+  filter(is.na(Longitude) & is.na(Latitude) & Country == "unknown" & Region == "unknown" & is.na(Postcode) & `Company Reference` == "Active")
+
+# Creating a bar plot to visualise such businesses
+ggplot(locationsMissing, aes(x = `Company Type`)) +
+  geom_bar(stat = "count", fill = "steelblue", color = "black") +
+  labs(
+    title = "Number of Businesses per Sector with no location information",
+    x = "Sector",
+    y = "Count"
+  ) +
+   theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))+ # Rotating the x-axis labels for better readability
+  scale_y_continuous(labels = scales::comma) # formatting the y scales to have commas for better readability
+
+```
+
+## 6.2. Checking that all organisations in the dataset have updated their accounts in the last year.
+
+```{r echo=FALSE, include=FALSE}
+filtered_data <- hmrcdata %>%
+  filter(
+    `Company Reference` == "Open",  # Checking if the company reference has the value of "Open"
+    !is.na(`Accounts Last Made Date`),  # Ensuring the Accounts Last Made Date column does not have a value of NA
+    as.Date(`Accounts Last Made Date`, format = "%Y-%m-%d") < Sys.Date() - years(1)  # ensuring the Accounts Last Made Date colum is a date and then checking if this date value is over 1 year old from the current date
+  )
+
+print(filtered_data)
+
+```
+
+
+\newpage
+
+# Chapter 7 – Insights sharing
+
+\newpage
+
+# Chapter 8 - Conclusion
+
+
+\newpage
+
+# References
+
